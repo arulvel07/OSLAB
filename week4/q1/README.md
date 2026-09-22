@@ -21,6 +21,129 @@
 
 ---
 
+## 📚 POSIX API Syntax & Quick Reference
+
+### 1. `shm_open()` — Create or open a POSIX shared memory object
+```c
+int shm_open(const char *name, int oflag, mode_t mode);
+```
+* **Header:** `<sys/mman.h>`, `<fcntl.h>`
+* **Parameters:**
+  * `name`: Name starting with `/` (e.g., `"/lab_shm_basic"`). Backed in Linux by `/dev/shm/`.
+  * `oflag`: Bitwise-OR flags controlling open mode (`O_RDONLY`, `O_RDWR`, `O_CREAT`, etc.).
+  * `mode`: File permission bits (e.g., `0666` for read/write by all). Required whenever `O_CREAT` is passed.
+* **Returns:** File descriptor (`fd >= 0`) on success, `-1` on error.
+
+### 2. `ftruncate()` — Set the size of the shared memory object
+```c
+int ftruncate(int fd, off_t length);
+```
+* **Header:** `<unistd.h>`
+* **Parameters:**
+  * `fd`: File descriptor returned by `shm_open()`.
+  * `length`: Size in bytes (a newly created shared memory object starts with size 0, so `ftruncate()` is mandatory before mapping).
+* **Returns:** `0` on success, `-1` on error.
+
+### 3. `mmap()` — Map shared memory into process virtual address space
+```c
+void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+```
+* **Header:** `<sys/mman.h>`
+* **Parameters:**
+  * `addr`: Suggested starting address (pass `NULL` to let the kernel choose).
+  * `length`: Number of bytes to map.
+  * `prot`: Memory protection flags (`PROT_READ`, `PROT_WRITE`, etc.).
+  * `flags`: Sharing behavior (`MAP_SHARED` for inter-process communication).
+  * `fd`: File descriptor from `shm_open()`.
+  * `offset`: Byte offset inside the object (typically `0`).
+* **Returns:** Pointer to mapped virtual address on success, `MAP_FAILED` (`(void *)-1`) on error.
+
+### 4. `munmap()` — Unmap memory from process address space
+```c
+int munmap(void *addr, size_t length);
+```
+* **Parameters:**
+  * `addr`: Starting address returned by `mmap()`.
+  * `length`: Same size passed to `mmap()`.
+* **Returns:** `0` on success, `-1` on error.
+
+### 5. `shm_unlink()` — Remove shared memory object from the system
+```c
+int shm_unlink(const char *name);
+```
+* **Parameters:**
+  * `name`: The POSIX object name (e.g., `"/lab_shm_basic"`).
+* **Behavior:** Removes the object from `/dev/shm`. The memory persists until all open processes unmap and close it, after which it is freed.
+* **Returns:** `0` on success, `-1` on error.
+
+---
+
+## 🔑 Core Flags Cheat Sheet & The Mental Model
+
+> **The Golden Rule to avoid confusing flags:**
+> * `O_*` = **How to open/create** the object (`shm_open`)
+> * `PROT_*` = **What access rights** the process has on memory pages (`mmap`)
+> * `MAP_*` = **How changes propagate** across processes (`mmap`)
+
+### 1. `shm_open()` Flags (`O_*`)
+| Flag | Meaning | Typical Usage |
+| :--- | :--- | :--- |
+| `O_RDONLY` | Open for reading only | Receiver / Consumer process |
+| `O_WRONLY` | Open for writing only | Writer only (rarely used alone in SHM) |
+| `O_RDWR` | Open for reading and writing | Sender / Creator process |
+| `O_CREAT` | Create object if it doesn't already exist | Sender / Creator (requires `0666` mode argument) |
+| `O_EXCL` | Fail (`-1`) if object already exists | Ensures exclusive creation of a fresh object |
+| `O_TRUNC` | Truncate existing object size to 0 | Resets existing object content |
+
+### 2. `mmap()` Memory Protection Flags (`PROT_*`)
+| Flag | Allowed Operations | Typical Usage |
+| :--- | :--- | :--- |
+| `PROT_READ` | Process can read mapped memory | Receiver (`mmap`) |
+| `PROT_WRITE` | Process can write to mapped memory | Writer |
+| `PROT_READ \| PROT_WRITE` | Process can read and write | Sender / Creator (`mmap`) |
+| `PROT_NONE` | Memory pages cannot be accessed | Memory guard pages |
+
+### 3. `mmap()` Mapping Behavior Flags (`MAP_*`)
+| Flag | Behavior | In POSIX IPC? |
+| :--- | :--- | :---: |
+| `MAP_SHARED` | Writes are visible to all other processes mapping the same object | **MANDATORY (✅)** |
+| `MAP_PRIVATE` | Copy-on-Write: Writes create private copies, never visible to others | **DO NOT USE (❌)** |
+| `MAP_ANONYMOUS` | Memory not backed by any file/name (used with `fork()`, `fd = -1`) | Optional for related fork |
+
+---
+
+## 🔥 The Two Combinations to Know Cold for the Exam
+
+### **1. Sender / Creator (Writing to SHM):**
+```c
+// 1. Open with Create + Read/Write
+int fd = shm_open("/lab_shm_basic", O_CREAT | O_RDWR, 0666);
+
+// 2. Set size (mandatory after creation)
+ftruncate(fd, 256);
+
+// 3. Map for Read + Write with MAP_SHARED
+char *ptr = (char *)mmap(NULL, 256, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+```
+
+### **2. Receiver / Reader (Reading from SHM & Cleanup):**
+```c
+// 1. Open existing object for Read-Only
+int fd = shm_open("/lab_shm_basic", O_RDONLY, 0666);
+
+// 2. Map for Read-Only with MAP_SHARED
+char *ptr = (char *)mmap(NULL, 256, PROT_READ, MAP_SHARED, fd, 0);
+
+// ... read data ...
+
+// 3. Unmap, close and unlink
+munmap(ptr, 256);
+close(fd);
+shm_unlink("/lab_shm_basic"); // Removes object from /dev/shm
+```
+
+---
+
 ## Solution Code
 
 ### 1. `posix_sender.c`
