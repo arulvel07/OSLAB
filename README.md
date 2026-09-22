@@ -9,6 +9,12 @@
 
 ---
 
+## 🎯 Exam Dedicated Question Banks
+* 📘 **[10-Mark High-Probability Questions & Solutions (Q1)](./10marks/README.md)** — Bidirectional Pipes, Fork-Exec Controllers, Process Trees, and Zombie/Orphan Lifecycle.
+* 🚀 **[15-Mark High-Probability Questions & Solutions (Q2)](./15marks/README.md)** — Distributed Matrix Multiplication, Parallel Array Reduction, POSIX Transpose, and Lock-Free Handshake Protocols.
+
+---
+
 ## 📂 Lab Directory & Question Index
 
 | Lab | Question | Topic / Concept | System Calls / Tools | Link |
