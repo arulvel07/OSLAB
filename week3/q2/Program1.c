@@ -21,7 +21,7 @@ int main() {
     }
 
     if (pid == 0) {
-        // --- CHILD PROCESS ---
+        // ================= CHILD PROCESS =================
         close(p2c[1]); // Close unused write end of parent->child
         close(c2p[0]); // Close unused read end of child->parent
 
@@ -30,10 +30,9 @@ int main() {
         read(p2c[0], &num1, sizeof(int));
         read(p2c[0], &num2, sizeof(int));
         read(p2c[0], &op, sizeof(char));
-        close(p2c[0]);
+        close(p2c[0]); // Finished reading input
 
         double result = 0.0;
-        int status_code = 0; // 0: OK, 1: Division by zero, 2: Invalid operator
 
         switch (op) {
             case '+':
@@ -47,23 +46,23 @@ int main() {
                 break;
             case '/':
                 if (num2 == 0) {
-                    status_code = 1;
-                } else {
-                    result = (double)num1 / num2;
+                    close(c2p[1]);
+                    exit(1); // Exit code 1: Division by zero error
                 }
+                result = (double)num1 / num2;
                 break;
             default:
-                status_code = 2;
-                break;
+                close(c2p[1]);
+                exit(2); // Exit code 2: Invalid operator error
         }
 
-        // Send back error status and result
-        write(c2p[1], &status_code, sizeof(int));
+        // On success: send ONLY the calculated result back through the pipe
         write(c2p[1], &result, sizeof(double));
         close(c2p[1]);
-        exit(0);
+
+        exit(0); // Exit code 0: Normal successful execution
     } else {
-        // --- PARENT PROCESS ---
+        // ================= PARENT PROCESS =================
         close(p2c[0]); // Close unused read end of parent->child
         close(c2p[1]); // Close unused write end of child->parent
 
@@ -71,29 +70,36 @@ int main() {
         int num2 = 4;
         char op = '+';
 
-        // Send inputs to child
+        // Send inputs to child via pipe 1
         write(p2c[1], &num1, sizeof(int));
         write(p2c[1], &num2, sizeof(int));
         write(p2c[1], &op, sizeof(char));
-        close(p2c[1]); // Close write end to indicate finish
+        close(p2c[1]); // Close write end to signal input transmission is complete
 
-        // Receive result from child
-        int status_code;
-        double result;
-        read(c2p[0], &status_code, sizeof(int));
-        read(c2p[0], &result, sizeof(double));
-        close(c2p[0]);
+        // Wait for child to exit and capture its exit status code
+        int status;
+        waitpid(pid, &status, 0);
 
-        // Wait to avoid leaving a zombie child
-        wait(NULL);
+        if (WIFEXITED(status)) {
+            int exit_code = WEXITSTATUS(status);
 
-        if (status_code == 1) {
-            printf("Error: Division by zero\n");
-        } else if (status_code == 2) {
-            printf("Error: Invalid operator\n");
+            if (exit_code == 1) {
+                printf("Error: Division by zero! (Child exited with status %d)\n", exit_code);
+            } else if (exit_code == 2) {
+                printf("Error: Invalid operator! (Child exited with status %d)\n", exit_code);
+            } else if (exit_code == 0) {
+                // Success: read computed result from pipe 2
+                double result;
+                read(c2p[0], &result, sizeof(double));
+                printf("Result of %d %c %d = %.2f\n", num1, op, num2, result);
+            } else {
+                printf("Child failed with unexpected exit status: %d\n", exit_code);
+            }
         } else {
-            printf("Result of %d %c %d = %.2f\n", num1, op, num2, result);
+            printf("Child process terminated abnormally.\n");
         }
+
+        close(c2p[0]); // Clean up read descriptor
     }
 
     return 0;

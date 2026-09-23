@@ -274,25 +274,27 @@ int main() {
         close(p2c[0]); // Finished reading
 
         double result = 0.0;
-        int status_code = 0; // 0: OK, 1: Division by zero, 2: Invalid op
 
         switch (op) {
             case '+': result = a + b; break;
             case '-': result = a - b; break;
             case '*': result = a * b; break;
             case '/':
-                if (b == 0) status_code = 1;
-                else result = (double)a / b;
+                if (b == 0) {
+                    close(c2p[1]);
+                    exit(1); // Exit code 1: Division by zero
+                }
+                result = (double)a / b;
                 break;
             default:
-                status_code = 2;
-                break;
+                close(c2p[1]);
+                exit(2); // Exit code 2: Invalid operator
         }
 
-        write(c2p[1], &status_code, sizeof(int));
+        // On success: send ONLY result over pipe
         write(c2p[1], &result, sizeof(double));
-        close(c2p[1]); // Finished writing
-        exit(0);
+        close(c2p[1]);
+        exit(0); // Exit code 0: Success
     } else {
         // --- PARENT PROCESS ---
         close(p2c[0]); // Close unused read end of p2c
@@ -306,21 +308,24 @@ int main() {
         write(p2c[1], &op, sizeof(char));
         close(p2c[1]); // Signal child that data sending is complete
 
-        int status_code;
-        double result;
-        read(c2p[0], &status_code, sizeof(int));
-        read(c2p[0], &result, sizeof(double));
-        close(c2p[0]); // Finished reading
+        // Capture child termination status
+        int status;
+        waitpid(pid, &status, 0);
 
-        wait(NULL); // Reap child to avoid zombie
+        if (WIFEXITED(status)) {
+            int exit_code = WEXITSTATUS(status);
 
-        if (status_code == 1) {
-            printf("Error: Division by zero!\n");
-        } else if (status_code == 2) {
-            printf("Error: Invalid operator!\n");
-        } else {
-            printf("Result of %d %c %d = %.2f\n", a, op, b, result);
+            if (exit_code == 1) {
+                printf("Error: Division by zero! (Child exit code: 1)\n");
+            } else if (exit_code == 2) {
+                printf("Error: Invalid operator! (Child exit code: 2)\n");
+            } else if (exit_code == 0) {
+                double result;
+                read(c2p[0], &result, sizeof(double));
+                printf("Result of %d %c %d = %.2f\n", a, op, b, result);
+            }
         }
+        close(c2p[0]);
     }
     return 0;
 }
