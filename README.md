@@ -15,6 +15,99 @@
 
 ---
 
+## 🧠 Master C Headers Cheat Sheet (Mug Up For Exam!)
+
+> **⚡ The "Universal Header Safety Net":**  
+> If you're nervous about forgetting a header during the exam, you can paste this complete bundle at the top of **any** C program. GCC will compile without any penalty, and you will **never get an "undeclared symbol" error**:
+> ```c
+> #include <stdio.h>
+> #include <stdlib.h>
+> #include <unistd.h>
+> #include <string.h>
+> #include <sys/types.h>
+> #include <sys/wait.h>
+> #include <fcntl.h>
+> #include <sys/mman.h>
+> #include <sys/stat.h>
+> #include <sys/shm.h>
+> #include <sys/ipc.h>
+> ```
+
+---
+
+### 📋 Detailed Header Breakdown: Exactly What Each Header Provides
+
+| Header File | What Functions / System Calls It Provides | What Macros / Flags / Types It Defines | When You MUST Include It |
+| :--- | :--- | :--- | :--- |
+| `<stdio.h>` | `printf()`, `scanf()`, `fgets()`, `perror()`, `fprintf()` | `stdin`, `stdout`, `stderr`, `NULL` | **Every single program** |
+| `<stdlib.h>` | `exit()`, `atoi()`, `atof()`, `malloc()`, `free()` | `EXIT_SUCCESS`, `EXIT_FAILURE` | Any program using `exit()` or string-to-number conversions |
+| `<string.h>` | `strlen()`, `strcpy()`, `strcmp()`, `strtok()`, `strcspn()` | `NULL` | Any program processing strings, commands, or pipe buffers |
+| `<unistd.h>` | `fork()`, `getpid()`, `getppid()`, `sleep()`, `usleep()`, `pipe()`, `read()`, `write()`, `close()`, `ftruncate()`, `execl()`, `execlp()`, `execvp()` | `STDIN_FILENO`, `STDOUT_FILENO` | **Core POSIX header:** Any program dealing with processes, pipes, or file descriptors |
+| `<sys/types.h>` | Defines core operating system data types | `pid_t`, `key_t`, `size_t`, `off_t`, `mode_t` | Best practice alongside `fork()`, `shmget()`, `waitpid()` |
+| `<sys/wait.h>` | `wait()`, `waitpid()` | `WIFEXITED(status)`, `WEXITSTATUS(status)`, `WIFSIGNALED(status)` | Any program where parent waits for children or checks child exit code |
+| `<fcntl.h>` | File control options | `O_CREAT`, `O_RDWR`, `O_RDONLY`, `O_WRONLY`, `O_EXCL`, `O_TRUNC` | **MANDATORY for `shm_open()`!** (Without this, `O_CREAT` is undeclared) |
+| `<sys/mman.h>` | `shm_open()`, `shm_unlink()`, `mmap()`, `munmap()` | `PROT_READ`, `PROT_WRITE`, `MAP_SHARED`, `MAP_PRIVATE`, `MAP_FAILED` | **MANDATORY for POSIX Shared Memory** |
+| `<sys/stat.h>` | File permission modes and file status | Mode bits like `0666`, `S_IRUSR`, `S_IWUSR` | Often included alongside `<fcntl.h>` for `shm_open()` permissions |
+| `<sys/ipc.h>` | `ftok()` | `IPC_CREAT`, `IPC_EXCL`, `IPC_RMID`, `IPC_PRIVATE` | **MANDATORY for System V Shared Memory** (`shmget`, `ftok`) |
+| `<sys/shm.h>` | `shmget()`, `shmat()`, `shmdt()`, `shmctl()` | `SHM_RDONLY`, `struct shmid_ds` | **MANDATORY for System V Shared Memory** attachment & control |
+| `<ctype.h>` | `tolower()`, `toupper()`, `isalpha()`, `isdigit()` | Character manipulation helpers | String transformation / vowel & consonant counting problems |
+
+---
+
+### 📦 Header Packs by Question Type (Mug Up Per Problem)
+
+#### 1. Fork, Process Trees, Zombie & Orphan Questions (Week 1 / Week 2 Q4)
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>     // fork(), getpid(), getppid(), sleep()
+#include <sys/types.h>  // pid_t
+#include <sys/wait.h>   // wait(), waitpid()
+```
+
+#### 2. Exec & Worker Controller Questions (Week 2 Q2, Q3)
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>     // fork(), execl(), execlp(), execvp()
+#include <string.h>     // strtok(), strcmp()
+#include <sys/types.h>  // pid_t
+#include <sys/wait.h>   // waitpid(), WIFEXITED(), WEXITSTATUS()
+```
+
+#### 3. Anonymous Pipes (Unidirectional or Bidirectional) (Week 3 Q1, Q2)
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>     // pipe(), read(), write(), close(), fork()
+#include <string.h>     // strlen(), strcpy()
+#include <sys/wait.h>   // wait()
+```
+
+#### 4. POSIX Shared Memory (`shm_open`, `mmap`, `munmap`, `shm_unlink`) (Week 4 Q1 & 15M)
+> ⚠️ **Compiler Flag:** Must compile with **`-lrt`**! (`gcc file.c -o file -lrt`)
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>     // ftruncate(), close(), fork()
+#include <fcntl.h>      // O_CREAT, O_RDWR, O_RDONLY (CRITICAL!)
+#include <sys/mman.h>   // shm_open(), mmap(), munmap(), shm_unlink(), PROT_*, MAP_*
+#include <sys/wait.h>   // wait()
+```
+
+#### 5. System V Shared Memory (`shmget`, `shmat`, `shmdt`, `shmctl`) (Week 4 Q2, Q3)
+> ⚠️ **Compiler Flag:** No special flag needed! (`gcc file.c -o file`)
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>     // fork()
+#include <sys/ipc.h>    // ftok(), IPC_CREAT, IPC_RMID, IPC_PRIVATE
+#include <sys/shm.h>    // shmget(), shmat(), shmdt(), shmctl()
+#include <sys/wait.h>   // wait()
+```
+
+---
+
 ## 📂 Lab Directory & Question Index
 
 | Lab | Question | Topic / Concept | System Calls / Tools | Link |
