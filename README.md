@@ -51,6 +51,7 @@
 | `<sys/ipc.h>` | `ftok()` | `IPC_CREAT`, `IPC_EXCL`, `IPC_RMID`, `IPC_PRIVATE` | **MANDATORY for System V Shared Memory** (`shmget`, `ftok`) |
 | `<sys/shm.h>` | `shmget()`, `shmat()`, `shmdt()`, `shmctl()` | `SHM_RDONLY`, `struct shmid_ds` | **MANDATORY for System V Shared Memory** attachment & control |
 | `<ctype.h>` | `tolower()`, `toupper()`, `isalpha()`, `isdigit()` | Character manipulation helpers | String transformation / vowel & consonant counting problems |
+| `<sys/syscall.h>` | Low-level raw system call invocations via `syscall()` | System call numbers (`SYS_fork`, `SYS_getpid`, `SYS_write`, etc.) | **Only if explicitly asked** to use raw `syscall(...)` instead of libc functions. Standard `fork()` and `getpid()` already come from `<unistd.h>`! |
 
 ---
 
@@ -105,6 +106,39 @@
 #include <sys/shm.h>    // shmget(), shmat(), shmdt(), shmctl()
 #include <sys/wait.h>   // wait()
 ```
+
+---
+
+## 💻 Top Linux Commands for the `exec` Family (Syntax Cheat Sheet)
+
+> **🔑 The 2 Golden Rules of `exec` Syntax:**  
+> 1. **Command Name is Repeated Twice:** The 1st parameter is the binary to find, and the 2nd parameter is `argv[0]` (program name by convention).  
+> 2. **Must End with `NULL`:** Always pass `(char *)NULL` as the last parameter, otherwise `exec` reads uninitialized memory and crashes with a SegFault!
+
+### 📋 Common Exam Commands & Exact `execlp` Invocations
+
+| Command | Exam Scenario | Exact `execlp` Invocation |
+| :--- | :--- | :--- |
+| **`cp`** | Copying files asynchronously | `execlp("cp", "cp", "src.txt", "dst.txt", (char *)NULL);` |
+| **`ls`** | Directory listing (`-l`, `-la`) | `execlp("ls", "ls", "-l", (char *)NULL);` |
+| **`wc`** | Line counting (`-l`), word counting (`-w`) | `execlp("wc", "wc", "-l", "file.txt", (char *)NULL);` |
+| **`grep`** | Search string / pattern | `execlp("grep", "grep", "ERROR", "log.txt", (char *)NULL);` |
+| **`cat`** | Display file contents | `execlp("cat", "cat", "file.txt", (char *)NULL);` |
+| **`head`** | Display first $N$ lines | `execlp("head", "head", "-n", "5", "file.txt", (char *)NULL);` |
+| **`date`** | Print current timestamp | `execlp("date", "date", (char *)NULL);` |
+| **`whoami`**| Print current user | `execlp("whoami", "whoami", (char *)NULL);` |
+| **`./custom`**| Run your own compiled utility | `execl("./calc_worker", "calc_worker", "10", "+", "5", (char *)NULL);` |
+
+### 🧠 `execlp` vs `execvp`
+* **`execlp()` (`l` = list):** Use when arguments are known statically at compile time:
+  ```c
+  execlp("cp", "cp", argv[1], argv[2], (char *)NULL);
+  ```
+* **`execvp()` (`v` = vector):** Use when arguments are dynamic arrays or tokenized from user input:
+  ```c
+  char *args[] = {"ls", "-l", "/tmp", NULL}; // Array MUST end with NULL
+  execvp(args[0], args);
+  ```
 
 ---
 

@@ -7,6 +7,48 @@ A system administrator wants a utility that copies (backs up) a file to a backup
 
 ---
 
+## 💻 Top Linux Commands for the `exec` Family (Exam Cheat Sheet)
+
+### 🔑 The 2 Golden Rules of `exec` Syntax
+1. **The command name is written twice:**  
+   The 1st parameter is the binary to find, and the 2nd parameter is `argv[0]` (the program's name by convention).
+2. **The argument list MUST terminate with `NULL` (or `(char *)NULL`):**  
+   If you omit `NULL`, `exec` will read uninitialized memory and crash with a Segmentation Fault!
+
+---
+
+### Quick Syntax for Common Exam Commands
+
+| Command | Typical Exam Goal | Exact `execlp` Syntax |
+| :--- | :--- | :--- |
+| **`cp`** | Copy source to destination | `execlp("cp", "cp", "src.txt", "dst.txt", (char *)NULL);` |
+| **`ls`** | Long listing of files | `execlp("ls", "ls", "-l", (char *)NULL);` |
+| **`wc`** | Count lines in a file | `execlp("wc", "wc", "-l", "file.txt", (char *)NULL);` |
+| **`grep`** | Search pattern in a file | `execlp("grep", "grep", "ERROR", "log.txt", (char *)NULL);` |
+| **`cat`** | Display contents of a file | `execlp("cat", "cat", "file.txt", (char *)NULL);` |
+| **`head`** | Display first 5 lines | `execlp("head", "head", "-n", "5", "file.txt", (char *)NULL);` |
+| **`date`** | Print current timestamp | `execlp("date", "date", (char *)NULL);` |
+| **`whoami`** | Print current user | `execlp("whoami", "whoami", (char *)NULL);` |
+| **`./custom`** | Run another compiled program | `execl("./calc_worker", "calc_worker", "10", "+", "5", (char *)NULL);` |
+
+---
+
+### 🧠 `execlp` vs `execvp`: When to Use Which?
+
+* **`execlp()` (`l` = list, `p` = PATH lookup):**  
+  Use when arguments are **fixed and known at compile time**:
+  ```c
+  execlp("cp", "cp", argv[1], argv[2], (char *)NULL);
+  ```
+* **`execvp()` (`v` = vector/array, `p` = PATH lookup):**  
+  Use when arguments are **dynamic** (e.g., tokenized from user input string):
+  ```c
+  char *args[] = {"ls", "-l", "/home", NULL}; // Array MUST end with NULL
+  execvp(args[0], args);
+  ```
+
+---
+
 ## Solution Code (`copy.c`)
 
 ```c
@@ -33,7 +75,7 @@ int main(int argc, char *argv[]) {
         // Child process: execute Linux cp command 
         execlp("cp", "cp", argv[1], argv[2], (char *)NULL);
 
-        // execlp() returns only if an error occurs
+        // execlp() returns ONLY if an error occurs
         perror("execlp");
         exit(1);
     }
@@ -42,7 +84,7 @@ int main(int argc, char *argv[]) {
     printf("Backup started. Child PID: %d\n", pid);
     printf("Parent process can continue logging/other work...\n");
 
-    // Wait for the backup to finish
+    // Wait for the backup to finish and inspect exit status
     int status;
     waitpid(pid, &status, 0);
 
